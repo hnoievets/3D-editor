@@ -1,0 +1,16 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "tree.js app",
+  "author": "Oleg Hnoievets",
+  "license": "ISC",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "prettify": "prettier --write \"**/*.{js,jsx,json,md,css,html}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "vite": "^5.2.11"
+  }
+}

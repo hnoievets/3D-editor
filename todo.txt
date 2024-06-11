@@ -1,0 +1,4 @@
+hole ...
+CSG
+
+? use general material but special one if apply changes
