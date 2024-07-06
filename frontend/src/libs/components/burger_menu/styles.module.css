@@ -1,0 +1,56 @@
+.burgerContainer {
+  position: relative;
+  float: left;
+  padding: 1px;
+  margin-top: 2px;
+}
+
+.burgerMenu {
+  width: 30px;
+  height: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  cursor: pointer;
+}
+
+.burgerMenu .bar {
+  height: 4px;
+  background-color: #887f7f;
+  border-radius: 2px;
+  transition: transform 0.3s ease;
+}
+
+.burgerMenu.open .bar:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.burgerMenu.open .bar:nth-child(2) {
+  opacity: 0;
+}
+
+.burgerMenu.open .bar:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+.menu {
+  position: absolute;
+  top: 35px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  opacity: inherit;
+}
+
+.menu a {
+  display: block;
+  padding: 10px 20px;
+  color: #333;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.menu a:hover {
+  background-color: #f0f2f5;
+}

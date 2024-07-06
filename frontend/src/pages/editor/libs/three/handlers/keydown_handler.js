@@ -1,32 +1,27 @@
-import { transform, renderer, scene } from '../entities';
-import { render } from '../helpers/helpers';
-import { groupService } from './libs/group_service';
+import { editor } from '../editor';
 
 export function handleKeyDown(event) {
+  const { transform } = editor;
   switch (event.code) {
-    case 'KeyQ':
-      transform.setSpace(transform.space === 'local' ? 'world' : 'local');
-      break;
-
     case 'KeyW':
       transform.setMode('translate');
       break;
 
-    case 'KeyE':
+    case 'KeyR':
       transform.setMode('rotate');
       break;
 
-    case 'KeyR':
+    case 'KeyS':
       transform.setMode('scale');
       break;
 
-    case '+':
-    case '=':
+    case 'NumpadAdd':
+    case 'Plus':
       transform.setSize(transform.size + 0.1);
       break;
 
-    case '-':
-    case '_':
+    case 'NumpadSubtract':
+    case 'Minus':
       transform.setSize(Math.max(transform.size - 0.1, 0.1));
       break;
 
@@ -42,41 +37,27 @@ export function handleKeyDown(event) {
       transform.showZ = !transform.showZ;
       break;
 
-    case ' ':
-      transform.enabled = !transform.enabled;
-      break;
-
     case 'Escape':
       transform.reset();
       break;
 
     // @todo
     case 'KeyI':
-      console.log(renderer.info);
+      console.log(editor.renderer.info);
       break;
 
     case 'Delete': {
-      const selectedObject = transform.object;
-
-      if (!selectedObject) {
+      if (!editor.selectedObject) {
         return;
       }
 
-      transform.detach();
-      scene.remove(selectedObject);
+      const selectedObject = editor.selectedObject;
+      editor.deselect();
 
-      groupService.callbackForAllSimpleObjects(
-        selectedObject,
-        disposeResources,
-      );
-      selectedObject.clear();
+      selectedObject.removeFromParent();
+      selectedObject.dispose();
 
-      render();
+      editor.render();
     }
   }
-}
-
-function disposeResources(object) {
-  object.geometry.dispose();
-  object.material.dispose();
 }

@@ -1,4 +1,17 @@
-hole ...
-CSG
+          FRONT
+
+group (save ancestor to JSON) +
+JSON.parse ancestor +
+ungroup - operation +
+color (change material and its color for single or group) +
+delete (grouped Operation) +
+
 
 ? use general material but special one if apply changes
+? material or light to see edges (and better when cut)
+? save grouped figure position when ungroup
+
+
+          BACK
+auth
+save editor.scene

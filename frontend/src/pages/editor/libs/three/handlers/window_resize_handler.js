@@ -1,15 +1,15 @@
-import { renderer, camera } from '../entities';
-import { render, getEnableCanvasSize } from '../helpers/helpers';
+import { editor } from '../editor';
+import { getEnableCanvasSize } from '../helpers/helpers';
 
 function handleWindowResize() {
   const { width: enableCanvasWidth, height: enableCanvasHeight } =
     getEnableCanvasSize();
 
-  camera.aspect = enableCanvasWidth / enableCanvasHeight;
-  camera.updateProjectionMatrix();
+  editor.camera.aspect = enableCanvasWidth / enableCanvasHeight;
+  editor.camera.updateProjectionMatrix();
 
-  renderer.setSize(enableCanvasWidth, enableCanvasHeight);
-  render();
+  editor.renderer.setSize(enableCanvasWidth, enableCanvasHeight);
+  editor.render();
 }
 
 export { handleWindowResize };

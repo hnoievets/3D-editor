@@ -1,59 +1,53 @@
-import { Mesh, MeshNormalMaterial, Vector2 } from 'three';
+import { Vector2 } from 'three';
 
+import { editor } from '../editor';
 import {
-  transform,
-  camera,
-  raycaster,
-  pointer,
-  scene,
-  csgEvaluator,
-  vector3,
-} from '../entities';
-import {
-  render,
   getNormalizedPointer,
-  getUserObjects,
   getLastParentGroupOrOneself,
 } from '../helpers/helpers';
 import { LEFT_MOUSE_BUTTON } from './libs/constants';
-import { groupService } from './libs/group_service';
-import { ADDITION, Operation, SUBTRACTION } from 'three-bvh-csg';
+import { Group } from '../packages/group/group';
+import { ADDITION } from 'three-bvh-csg';
+import { Solid } from '../packages/operations/solid';
+import { Hole } from '../packages/operations/hole';
+import { CsgType } from '../packages/operations/constants';
 
 function handleMousedown(event) {
   if (event.button == LEFT_MOUSE_BUTTON) {
-    pointer.lastMouseDown = new Vector2(event.clientX, event.clientY);
+    editor.pointer.lastMouseDown = new Vector2(event.clientX, event.clientY);
   }
 }
 
-function handleClick(event) {
-  console.log([...scene.children]);
+function handleSelecting(event) {
+  console.log([...editor.scene.children]);
 
   if (
-    !pointer.lastMouseDown.equals(new Vector2(event.clientX, event.clientY))
+    !editor.pointer.lastMouseDown.equals(
+      new Vector2(event.clientX, event.clientY)
+    )
   ) {
     return;
   }
 
-  const transformingObject = transform.object;
+  const transformingObject = editor.selectedObject;
 
-  raycaster.setFromCamera(
+  editor.raycaster.setFromCamera(
     getNormalizedPointer(event.clientX, event.clientY),
-    camera,
+    editor.camera
   );
-  const intersections = raycaster.intersectObjects(getUserObjects());
+  const intersections = editor.raycaster.intersectObjects(
+    editor.getUserObjects()
+  );
 
   if (!intersections.length) {
     if (transformingObject) {
-      transform.detach();
+      editor.deselect();
 
-      if (
-        transformingObject.isGroup &&
-        !transformingObject.userData.isGrouped
-      ) {
-        groupService.ungroup(transformingObject);
+      if (transformingObject.isGroup) {
+        transformingObject.ungroup();
       }
 
-      render();
+      editor.render();
     }
     return;
   }
@@ -69,169 +63,148 @@ function handleClick(event) {
 
   if (transformingObject) {
     if (event.ctrlKey) {
-      if (
-        transformingObject.isGroup &&
-        !transformingObject.userData.isGrouped
-      ) {
-        target = groupService.expandGroup(transformingObject, [
-          firstIntersectedObject,
-        ]);
+      if (transformingObject.isGroup) {
+        target = transformingObject.getExpanded([firstIntersectedObject]);
       } else {
-        target = groupService.group([
+        target = new Group().group([
           transformingObject,
           firstIntersectedObject,
         ]);
       }
 
-      scene.add(target);
-    } else if (
-      transformingObject.isGroup &&
-      !transformingObject.userData.isGrouped
-    ) {
-      transform.detach();
-      groupService.ungroup(transformingObject);
+      editor.scene.add(target);
+    } else if (transformingObject.isGroup) {
+      editor.deselect();
+      transformingObject.ungroup();
     }
   }
 
-  transform.attach(target);
+  editor.select(target);
 
-  render();
+  editor.render();
 }
 
 function handleGroup() {
-  if (!transform.object?.isGroup) {
+  if (!editor.selectedObject?.isGroup) {
     return;
   }
-  /*
-    ---LAYOUT---
 
-    base = new Operation(children[0])
-    solidsAndHolesOperations = children.slice(0).groupBy(({isHole}) => isHole ? 'holes' : 'solids') - position, updateMatrixWorld();
-    base.add(...solids, ...holes)
+  const group = editor.selectedObject;
 
-    result = csgEvaluator.evaluateHierarchy(base, new Mesh()?);
+  const { solids, holes } = Object.groupBy(group.children, (operation) =>
+    operation instanceof Solid ? 'solids' : 'holes'
+  );
 
-    alignMesh() - to the center and back
+  let root, result;
+  const ancestor = JSON.stringify(group);
 
-  */
+  if (solids?.length) {
+    root = solids.shift();
 
-  const group = transform.object;
+    const operations = holes ? solids.concat(holes) : solids;
 
-  const children = group.children.slice();
+    operations.forEach((operation) => {
+      if (operation instanceof Hole) {
+        if (Array.isArray(operation.material)) {
+          operation.material.forEach((material) => (material.opacity = 1));
+        } else {
+          operation.material.opacity = 1;
+        }
+      }
 
-  const solids = [];
-  const holes = [];
-
-  children.forEach((child) => {
-    const { isHole, geometry, material, quaternion, scale } = child;
-
-    const operation = new Operation(geometry, material);
-    operation.position.copy(child.getWorldPosition(vector3));
-    operation.scale.copy(scale);
-    operation.quaternion.copy(quaternion);
-
-    operation.updateMatrixWorld();
-
-    if (isHole) {
-      operation.operation = SUBTRACTION;
-
-      holes.push(operation);
-      return;
-    }
-    // operation.operation == ADDITION by default
-    solids.push(operation);
-  });
-
-  const target = new Mesh();
-
-  let root;
-
-  if (solids.length) {
-    root = solids.splice(0, 1)[0];
-    solids.concat(holes).forEach((operation) => root.attach(operation));
-  } else {
-    root = holes.splice(0, 1)[0];
-
-    holes.forEach((operation) => {
-      operation.operation = ADDITION;
       root.attach(operation);
-
-      target.isHole = true;
     });
+
+    result = new Solid();
+  } else {
+    root = holes.shift();
+
+    holes.forEach((hole) => {
+      hole.operation = ADDITION;
+      root.attach(hole);
+    });
+
+    result = new Hole();
   }
 
-  const result = csgEvaluator.evaluateHierarchy(root, target);
+  result = editor.csgEvaluator.evaluateHierarchy(root, result);
+  result.setAncestor(ancestor);
 
-  result.userData.source = children;
-
-  transform.detach();
-  groupService.ungroup(group);
-
-  scene.remove(...children);
+  editor.deselect();
+  group.removeFromParent();
 
   result.geometry.computeBoundingBox();
-  const center = result.geometry.boundingBox.getCenter(vector3);
+  const center = result.geometry.boundingBox.getCenter(editor.vector3);
   result.geometry.center();
   result.position.copy(center);
 
-  scene.add(result);
+  editor.scene.add(result);
+  editor.select(result);
 
-  transform.attach(result);
-
-  render();
+  editor.render();
 }
 
 function handleUngroup() {
-  if (!transform.object?.isGroup) {
+  if (!editor.selectedObject?.hasAncestor) {
+    console.log('has not');
     return;
   }
 
-  const selectedGroup = transform.object;
+  const { selectedObject } = editor;
+  editor.deselect();
 
-  transform.detach();
+  const group = selectedObject.undoOperation();
 
-  groupService.ungroup(selectedGroup);
+  editor.scene.add(group);
+  editor.select(group);
 
-  render();
+  editor.render();
 }
 
 function handleChangeColor(event) {
-  if (!transform.object) {
+  if (!editor.selectedObject) {
     return;
   }
 
-  groupService.callbackForAllSimpleObjects(transform.object, (simpleObject) =>
-    simpleObject.material.setValues({ color: event.target.value }),
+  editor.selectedObject.setColor(
+    Number.parseInt(event.target.value.replace('#', '0x'))
   );
 
-  render();
+  editor.render();
 }
 
 function handleHole() {
-  if (!transform.object) {
+  changeCsgType(editor.selectedObject, CsgType.HOLE);
+}
+
+function handleSolid() {
+  changeCsgType(editor.selectedObject, CsgType.SOLID);
+}
+
+function changeCsgType(object, type) {
+  if (!object || (!object.isGroup && object.type === type)) {
     return;
   }
+  editor.deselect();
 
-  const selectedObject = transform.object;
+  const result = object.changeOperationTo(type);
 
-  selectedObject.isHole = true;
-  const material = new MeshNormalMaterial({
-    depthWrite: false,
-    transparent: true,
-    opacity: 0.5,
-  });
+  if (!result.isGroup) {
+    editor.scene.add(result);
 
-  selectedObject.material = material;
-  selectedObject.castShadow = false;
+    object.removeFromParent();
+  }
 
-  render();
+  editor.select(result);
+  editor.render();
 }
 
 export {
-  handleClick,
+  handleSelecting,
   handleMousedown,
   handleGroup,
   handleUngroup,
   handleChangeColor,
   handleHole,
+  handleSolid,
 };

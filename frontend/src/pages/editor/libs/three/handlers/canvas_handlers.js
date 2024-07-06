@@ -1,20 +1,9 @@
-import { camera, raycaster, orbit } from '../entities';
-import { getLastParentGroupOrOneself } from '../helpers/helpers';
-import { getUserObjects, getNormalizedPointer } from '../helpers/helpers';
+import { editor } from '../editor';
+import { resourcesManager } from '../packages/resource_manager/resources_manager';
 
-function handleDblclick(event) {
-  const pointer = getNormalizedPointer(event.clientX, event.clientY);
-
-  raycaster.setFromCamera(pointer, camera);
-  const firstIntersectedObject =
-    raycaster.intersectObjects(getUserObjects())[0]?.object;
-
-  if (firstIntersectedObject) {
-    orbit.target = getLastParentGroupOrOneself(
-      firstIntersectedObject,
-    ).position.clone();
-    orbit.update();
-  }
+export async function load(children) {
+  console.log(children);
+  children.forEach((child) => {
+    resourcesManager.load(editor.scene, child);
+  });
 }
-
-export { handleDblclick };
